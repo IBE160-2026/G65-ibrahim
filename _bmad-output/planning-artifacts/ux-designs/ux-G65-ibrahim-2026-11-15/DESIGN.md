@@ -53,7 +53,7 @@ components:
   error-message:
     note: 'st.error, one per problem, placed directly above the Generate button'
   demo-toggle:
-    note: 'st.toggle under the options row, off by default'
+    note: 'st.toggle under the options row, off by default (on when MOCK_MODE=true)'
   demo-banner:
     note: 'st.warning at the top of the results block while Demo mode output is shown'
 ---

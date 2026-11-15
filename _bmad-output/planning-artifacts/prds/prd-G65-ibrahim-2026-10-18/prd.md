@@ -2,7 +2,7 @@
 title: AI Study Buddy
 status: final
 created: 2026-10-18
-updated: 2026-10-18
+updated: 2026-11-15
 ---
 
 # PRD: AI Study Buddy
@@ -106,10 +106,10 @@ User selects summary Length (short/medium/long) before generating.
 
 #### FR-6: Output language selection
 
-User selects Output Language (Norwegian or English) before generating, independent of Course Material's source language.
+User selects Output Language (Norwegian or English) before generating, independent of Course Material's source language. The selection applies to both the Summary and the Quiz.
 
 **Consequences (testable):**
-- Selecting English output returns an English summary even when the source Course Material is in Norwegian, and vice versa.
+- Selecting English output returns an English Summary and Quiz even when the source Course Material is in Norwegian, and vice versa.
 
 #### FR-7: Structured summary generation
 
@@ -130,10 +130,11 @@ System generates a Summary from Course Material via the Gemini API, respecting t
 
 #### FR-8: Quiz generation with answer key
 
-System generates a Quiz of at least 5 questions from the Course Material, each with a stored correct Answer Key entry, alongside the Summary in the same generation request. `[ASSUMPTION: questions are multiple-choice or short-answer with an exact-match expected answer, to make "correct vs. incorrect" checking unambiguous for a beginner implementation — confirm format during architecture/UX.]`
+System generates a Quiz of at least 5 questions from the Course Material, each with a stored correct Answer Key entry, alongside the Summary in the same generation request. Questions are multiple choice with 4 options and exactly 1 correct option, so correct/incorrect checking is unambiguous (decided in UX, `ux-designs/ux-G65-ibrahim-2026-11-15/EXPERIENCE.md`).
 
 **Consequences (testable):**
 - Every generated Quiz has at least 5 questions.
+- Every question has exactly 4 options and exactly 1 correct option.
 - Every question has a corresponding stored correct answer before the user submits anything.
 
 #### FR-9: Quiz answer submission and results
@@ -166,6 +167,21 @@ System shows a loading/progress indicator while waiting on the Gemini API respon
 **Consequences (testable):**
 - A visible loading state is shown between submission and result, so the UI never appears frozen during the ~30-second wait.
 
+### 4.5 Demo Mode
+
+**Description:** Lets a grader (or an automated test) run the full Summary + Quiz flow without a Gemini API key, using a saved example response. Supports SM-2.
+
+**Functional Requirements:**
+
+#### FR-12: Demo mode with saved example output
+
+User can turn on Demo mode with an in-app toggle. While it is on, Generate returns a saved example Summary and Quiz from the repository without calling the Gemini API. Setting `MOCK_MODE=true` in the environment starts the app with Demo mode on.
+
+**Consequences (testable):**
+- With Demo mode on and no API key configured, Generate shows the example Summary and Quiz, and the quiz can be answered and checked.
+- No Gemini API call is made while Demo mode is on.
+- Demo output is always labelled as example output, never presented as generated from the user's material.
+
 ## 5. Non-Goals (Explicit)
 
 - Not building OCR or any scanned/image-PDF support in v1.
@@ -183,6 +199,7 @@ System shows a loading/progress indicator while waiting on the Gemini API respon
 - Summary generation: length + language selection (§4.2)
 - Quiz generation with answer key: ≥5 questions, submit-and-check flow (§4.3)
 - Clean, simple Streamlit UI with loading feedback (§4.4)
+- Demo mode with saved example output, usable without an API key (§4.5)
 - Documentation explaining how the app and its AI use work
 - Secrets handled via `.env` or Streamlit `secrets.toml`, both gitignored; `.env.example` committed with placeholder values
 - A dedicated test-data folder with sample documents: Norwegian PDF, English PDF, mixed-language text, scanned/invalid PDF
@@ -194,7 +211,6 @@ System shows a loading/progress indicator while waiting on the Gemini API respon
 - Flashcard generation — deferred, same pipeline reusable later (§8)
 - Per-subject storage of past summaries/quizzes (e.g. local SQLite) — deferred (§8)
 - Multi-user accounts/login — deferred, not designed against in v1 architecture decisions
-- `[NOTE FOR PM]` A canned-response test mode for graders without their own Gemini key is under consideration but not committed — see Open Question in §12.
 
 ## 7. Cross-Cutting NFRs
 
@@ -231,13 +247,13 @@ System shows a loading/progress indicator while waiting on the Gemini API respon
 
 - API key stored via `.env` or Streamlit `secrets.toml`; both gitignored. `.env.example` with placeholder values is committed so the structure is visible without exposing a real key.
 - README documents: local setup, how to obtain a free Gemini API key from Google AI Studio (no credit card required), and how to run the app end-to-end — sufficient for someone unfamiliar with the project (e.g., a grader) to succeed without the builder's own key or infrastructure.
-- `[NOTE FOR PM]` Whether to also ship a canned-response test mode (pre-saved example output, no live API key needed) as a grading fallback is still open — see §12.
+- README also explains Demo mode (FR-12), so a grader can try the app before getting a key.
 
 ## 12. Success Metrics
 
 **Primary**
-- **SM-1:** All functional success criteria in §4 (FR-1 through FR-11 consequences) pass verification — via automated test where listed in §10, manual checklist otherwise — before submission. Validates FR-1–FR-11.
-- **SM-2:** A person unfamiliar with the project can run the app locally end-to-end using only the README, without the builder's intervention. Validates §11.
+- **SM-1:** All functional success criteria in §4 (FR-1 through FR-12 consequences) pass verification — via automated test where listed in §10, manual checklist otherwise — before submission. Validates FR-1–FR-12.
+- **SM-2:** A person unfamiliar with the project can run the app locally end-to-end using only the README, without the builder's intervention: in Demo mode without a key, and in live mode with their own free key. Validates §11, FR-12.
 
 **Secondary**
 - **SM-3 (personal):** Abdiaziz keeps using the app on his own coursework after the semester ends.
@@ -249,10 +265,9 @@ System shows a loading/progress indicator while waiting on the Gemini API respon
 
 1. Exact submission deadline and deliverable format are unconfirmed against the actual IBE160 syllabus — the brief currently marks this **Urgent** (reported as due now/overdue). Needs resolution immediately; may force further scope cuts.
 2. Whether Summary and Quiz are generated via one combined Gemini request or two separate calls — affects rate-limit exposure and prompt design. Deferred to architecture.
-3. Exact Quiz question format (multiple-choice vs. short-answer) — see `[ASSUMPTION]` in FR-8. Deferred to architecture/UX.
-4. Whether to build a canned-response test mode for graders, or rely solely on README instructions for obtaining a free key. Deferred — decide based on remaining time before the deadline.
+3. ~~Exact Quiz question format~~ — resolved 2026-11-15 in UX: multiple choice, 4 options, 1 correct (FR-8).
+4. ~~Canned-response test mode for graders~~ — resolved 2026-11-15 in UX: included as Demo mode (FR-12).
 
 ## 14. Assumptions Index
 
-- §4.3 FR-8 — Quiz questions assumed to be multiple-choice or short-answer with exact-match checking, for unambiguous correct/incorrect scoring.
 - §9 — Summary and Quiz assumed to be generated via a single combined Gemini request per submission, to conserve free-tier rate-limit budget.

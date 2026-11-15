@@ -23,7 +23,7 @@ One page with two blocks. No navigation, no sidebar.
 
 | Surface | Reached from | Purpose | FRs |
 |---|---|---|---|
-| Input block | App open | Provide Course Material (PDF or pasted text), choose Length and Output Language, press Generate | FR-1, FR-2, FR-5, FR-6 |
+| Input block | App open | Provide Course Material (PDF or pasted text), choose Length and Output Language, press Generate, optionally turn on Demo mode | FR-1, FR-2, FR-5, FR-6, FR-12 |
 | Results block: Summary tab | Appears after a successful Generate | Read the structured Summary | FR-7, FR-10 |
 | Results block: Quiz tab | Same results block, second tab | Answer 5 multiple-choice questions, submit, see per-question results | FR-8, FR-9, FR-10 |
 
@@ -53,11 +53,11 @@ Behavioral. Visual specs live in `DESIGN.md` Components.
 | Paste text area | Free text, no length limit in the UI. Whitespace-only counts as empty. |
 | Length radio | Short / Medium / Long; default **Medium** `[ASSUMPTION]`. Each option's caption shows its word range (<150, 150–400, 400–800) so the choice is concrete. |
 | Language radio | English / Norsk; default **English** `[ASSUMPTION]`. Applies to Summary and Quiz. |
-| Demo mode toggle | `st.toggle("Demo mode (example output, no API key needed)")` under the options, off by default. When on, Generate skips validation and the API and returns a saved example Summary and Quiz from the repo. Works without a Gemini key. |
+| Demo mode toggle | `st.toggle("Demo mode (example output, no API key needed)")` under the options, off by default (on at start when `MOCK_MODE=true`). When on, Generate skips validation and the API and returns a saved example Summary and Quiz from the repo. Works without a Gemini key. (FR-12) |
 | Generate button | Runs validation first (FR-4, FR-3), then one Gemini request for Summary and Quiz together (PRD §9 assumption). Disabled, with a spinner, while the request runs. A second click during a run is impossible. |
 | Results tabs | Shown only after a successful generation. Opens on the Summary tab. |
 | Summary | Rendered markdown: topic headings plus bullets. Caption below: "{N} words · {length} · {language}". |
-| Quiz form | 5 questions in one `st.form`, each a 4-option radio with no default answer. One "Check answers" button, which checks only when all 5 are answered. `[ASSUMPTION: multiple choice — resolves PRD FR-8 assumption and Open Question 3 on the UX side]` |
+| Quiz form | 5 questions (the FR-8 minimum) in one `st.form`, each a 4-option radio with no default answer. One "Check answers" button, which checks only when all 5 are answered. (FR-8, FR-9) |
 | Quiz results | After Check answers: score line at the top, and under each question a correct/incorrect row with the right answer shown if wrong. Radios stay visible with the user's choices. A "Try again" button clears answers and results (same questions, no new API call). |
 
 ## State Patterns
@@ -147,6 +147,8 @@ Failure: Gemini's free-tier limit is hit. A warning asks Abdiaziz to wait a minu
 
 ## Decisions on PRD open items
 
-- **Quiz format (PRD OQ 3):** multiple choice, 4 options, 5 questions.
-- **Demo mode (PRD OQ 4):** included, behind a toggle, with a persistent banner.
-- **UI chrome language:** English.
+These are now written into the PRD (updated 2026-11-15).
+
+- **Quiz format (PRD OQ 3):** multiple choice, 4 options, 1 correct (FR-8).
+- **Demo mode (PRD OQ 4):** included, behind a toggle, with a persistent banner (FR-12).
+- **UI chrome language:** English. Output Language applies to Summary and Quiz (FR-6).
