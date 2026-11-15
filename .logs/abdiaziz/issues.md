@@ -1,0 +1,5 @@
+# Åpne punkter
+
+- [ ] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Update the PRD (§6.2, §11, §13 OQ 4): demo mode is now included per the UX decision
+- [ ] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Decide one vs. two Gemini calls in architecture (PRD OQ 2); the UX assumes one call
+- [ ] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Optional: render key-screen mocks if a visual reference is needed during the build
