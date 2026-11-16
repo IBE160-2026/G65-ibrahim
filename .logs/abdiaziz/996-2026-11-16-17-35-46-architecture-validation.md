@@ -46,7 +46,7 @@ Apply the validation fixes as a spine Update, re-run the three lenses one at a t
   - Medium fixes: `httpx2.TransportError` is caught as a whole; pypdf catch-all; `decrypt("")` for owner-password PDFs; demo caption and fingerprint; `ERROR_UI` fallback and last-resort rows; Story 3.1 tests at core level.
 - UX `EXPERIENCE.md` has 4 new error states (encrypted/damaged PDF, material rejected, invalid key, unexpected error). `DESIGN.md` uses `width="stretch"`.
 - `epics.md` Stories 1.2, 1.3, 1.4, 2.1, 2.2, 3.1, 3.2 and 3.3 are aligned with the spine.
-- Committed as `751af2f` (spine, memlog, all review files, UX, epics). Not pushed.
+- Committed as `751af2f` (spine, memlog, all review files, UX, epics) and pushed to `origin/main` together with the session log.
 
 ### Open items
 - The four new error messages were written by Claude and should be reviewed by Abdiaziz.
