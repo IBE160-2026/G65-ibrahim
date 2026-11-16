@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spine Validation</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1f2328; --muted:#5b636e; --card:#ffffff; --line:#e3e0d8;
+          --crit:#b42318; --high:#c2410c; --med:#a16207; --low:#4b5563; --ok:#15803d; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14161a; --fg:#e6e8eb; --muted:#9aa3ad; --card:#1c1f24; --line:#2c3038;
+          --crit:#f87171; --high:#fb923c; --med:#facc15; --low:#9ca3af; --ok:#4ade80; color-scheme: dark; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:1.6rem; margin:0 0 4px; }
+  .meta { color:var(--muted); font-size:.9rem; margin-bottom:20px; }
+  .verdict { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--high); padding:14px 16px; border-radius:8px; }
+  .totals { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 8px; }
+  .pill { border:1px solid var(--line); background:var(--card); border-radius:999px; padding:4px 12px; font-size:.9rem; }
+  h2 { font-size:1.15rem; margin:32px 0 10px; display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .f { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .f h3 { margin:0 0 4px; font-size:1rem; }
+  .src { color:var(--muted); font-size:.85rem; font-weight:normal; }
+  .fix { margin-top:6px; }
+  .fix b { color:var(--ok); }
+  code { font-family: ui-monospace, Consolas, monospace; font-size:.88em; background:color-mix(in srgb, var(--line) 55%, transparent); padding:1px 4px; border-radius:4px; }
+  ul { padding-left:20px; }
+  .next { border-left:4px solid var(--ok); }
+</style>
+</head>
+<body>
+<main>
+<h1>Spine validation: AI Study Buddy</h1>
+<div class="meta">2026-11-16 · <code>ARCHITECTURE-SPINE.md</code> (final, b9a5d76) · spine not changed · lint clean · 3 lenses run one at a time</div>
+
+<div class="verdict">The paradigm, module boundaries, the single Gemini request and the pinned stack hold up, and every pin is current and installs together on Python 3.13. The holes are all on the <code>app.py</code> side: session state, the fingerprint, the <code>st.secrets</code> hand-off, and Gemini timeouts/network errors under google-genai 3.x. Stories built separately against the spine as it stands would crash at startup in one case and disagree silently in several others. <strong>Fix these before Story 1.1.</strong></div>
+
+<div class="totals">
+  <span class="pill" style="color:var(--crit)">1 critical</span>
+  <span class="pill" style="color:var(--high)">4 high</span>
+  <span class="pill" style="color:var(--med)">9 medium</span>
+  <span class="pill" style="color:var(--low)">6 low</span>
+</div>
+
+<h2><span class="dot" style="background:var(--crit)"></span>Critical</h2>
+<div class="f"><h3>C1: App crashes at startup without <code>secrets.toml</code> <span class="src">adversarial H1</span></h3>
+AD-9 passes <code>st.secrets</code> to <code>config.load_settings</code>. With no secrets file (a grader using only <code>.env</code>), reading it raises a Streamlit error that <code>config.py</code> can't catch without importing Streamlit, which AD-1 forbids.
+<div class="fix"><b>Fix (AD-9):</b> <code>app.py</code> converts <code>st.secrets</code> to a <code>dict</code> inside try/except, falling back to <code>{}</code>.</div></div>
+
+<h2><span class="dot" style="background:var(--high)"></span>High</h2>
+<div class="f"><h3>H1: Quiz count, "at least 5" vs "exactly 5" <span class="src">rubric F1 · adversarial H9</span></h3>
+AD-3 allows 5 or more questions, but the UX and stories hard-code 5 ("You got X of 5 right", questions 1–5).
+<div class="fix"><b>Fix (AD-3):</b> exactly 5 questions. That still meets the PRD's "at least 5".</div></div>
+<div class="f"><h3>H2: Session-state contract is incomplete <span class="src">rubric F2 · adversarial H3 H4 H5 H8 H10</span></h3>
+<ul>
+  <li><strong>Missing keys:</strong> widget keys (tabs, radios, toggle), a running flag, and the Length/Language used for a result. Without that last one, the caption contradicts stale and demo results.</li>
+  <li><strong>Radio state:</strong> the quiz radios keep their own state, so clearing <code>quiz_answers</code> doesn't clear them. <code>st.radio</code> returns option text, not an index.</li>
+  <li><strong>Value types:</strong> <code>study_pack</code> could be stored as a <code>StudyPack</code> or as a <code>dict</code>.</li>
+  <li><strong>Failure timing:</strong> it isn't said whether Generate clears state on click or only on success.</li>
+</ul>
+<div class="fix"><b>Fix (rewrite AD-7):</b> list app keys and widget keys separately; add <code>generated_with</code> and <code>generation_id</code>; radio keys include <code>generation_id</code> and a <code>quiz_round</code> counter, with options as indices 0–3; <code>study_pack</code> is always a <code>StudyPack</code>; state changes only after a successful generation.</div></div>
+<div class="f"><h3>H3: The fingerprint is underspecified <span class="src">rubric F3 · adversarial H2</span></h3>
+It isn't said whether the fingerprint hashes raw input or extracted text, whether the active tab counts, which hash to use, or what demo mode hashes. As a result the stale-results note ends up always on or never on.
+<div class="fix"><b>Fix (new AD-12):</b> a core function <code>input_fingerprint(active_tab, raw_value, length, language, demo)</code> hashes the active tab's raw widget value with SHA-256, at Generate and on every rerun.</div></div>
+<div class="f"><h3>H4: Timeouts and network errors under google-genai 3.x <span class="src">version VC-1 VC-2 · rubric F5</span></h3>
+The default timeout is <code>None</code>, and network and timeout failures arrive as <code>httpx2</code> exceptions, not <code>errors.APIError</code>. As specified, the "Couldn't reach Gemini" path can't happen.
+<div class="fix"><b>Fix (AD-4, AD-5):</b> <code>HttpOptions(timeout=60_000)</code> (milliseconds); map <code>httpx2.TimeoutException</code> and <code>ConnectError</code> to <code>GeminiUnavailable</code>.</div></div>
+
+<h2><span class="dot" style="background:var(--med)"></span>Medium</h2>
+<div class="f"><h3>M1: Uncovered failures <span class="src">rubric F4 · version VC-9</span></h3>Encrypted and corrupt PDFs, a Gemini 400 for oversized input, a safety block or empty reply, and an invalid demo JSON file. <div class="fix"><b>Fix:</b> map each to an existing error type or a new one (e.g. <code>UnreadablePdf</code>).</div></div>
+<div class="f"><h3>M2: Tested helpers sit in <code>app.py</code> <span class="src">rubric F6</span></h3>Word count and the fingerprint must be tested, but the shell isn't. <div class="fix"><b>Fix:</b> move them into a core module.</div></div>
+<div class="f"><h3>M3: Error messages are split across stories <span class="src">adversarial H10</span></h3>Stories 1.2, 1.4 and 3.1 each touch the message text and style. <div class="fix"><b>Fix:</b> one <code>ERROR_UI</code> table (text + error/warning style) in <code>app.py</code>.</div></div>
+<div class="f"><h3>M4: Enum ↔ label ↔ prompt wording <span class="src">adversarial H6</span></h3><div class="fix"><b>Fix:</b> one mapping in <code>models.py</code>; fixed placeholder names <code>{word_range}</code>, <code>{language_name}</code>, <code>{material}</code>.</div></div>
+<div class="f"><h3>M5: <code>ingest()</code> signature <span class="src">adversarial H7</span></h3><div class="fix"><b>Fix:</b> <code>from_pdf(name, data: bytes)</code> and <code>from_text(text)</code>; <code>NotPdf</code> = no <code>.pdf</code> extension or bytes not starting with <code>%PDF</code>.</div></div>
+<div class="f"><h3>M6: LLM validation and test seam <span class="src">rubric F7</span></h3><div class="fix"><b>Fix:</b> <code>StudyPack.model_validate_json(response.text)</code>; tests replace <code>llm._call_gemini(prompt, settings) -> str</code>.</div></div>
+<div class="f"><h3>M7: Unpinned transitive dependencies <span class="src">version VC-6</span></h3>Community Cloud picks fresh starlette/uvicorn versions on every deploy. <div class="fix"><b>Fix:</b> freeze the full set before Story 3.2.</div></div>
+<div class="f"><h3>M8: Operational envelope only in the memlog <span class="src">rubric F8</span></h3>Privacy disclosure, model-deprecation plan, manual Python 3.13 choice, throttling. <div class="fix"><b>Fix:</b> add to Deployment and Deferred.</div></div>
+<div class="f"><h3>M9: Structured output on API v1 not smoke-tested <span class="src">version VC-3</span></h3><div class="fix"><b>Fix:</b> one real smoke call in Story 1.3's manual checks.</div></div>
+
+<h2><span class="dot" style="background:var(--low)"></span>Low</h2>
+<ul>
+  <li><code>use_container_width</code> is deprecated in Streamlit 1.67; use <code>width="stretch"</code> (also affects <code>DESIGN.md</code>).</li>
+  <li>Some diagram edges don't match the text (<code>app → config</code> vs the AD-9 hand-off).</li>
+  <li>Story 1.2's interim result temporarily skips AD-7's state keys.</li>
+  <li>Plus 3 more in <code>review-version-currency.md</code>.</li>
+</ul>
+
+<h2><span class="dot" style="background:var(--ok)"></span>Verified OK</h2>
+<ul>
+  <li>All pins are the latest on PyPI, support Python 3.13 and install together.</li>
+  <li><code>gemini-3.5-flash-lite</code> is stable, on the free tier, with no deprecation date.</li>
+  <li>google-genai doesn't retry by default (matches AD-2).</li>
+  <li><code>st.tabs(key=, on_change="rerun")</code> exposes the active tab.</li>
+</ul>
+
+<div class="verdict next" style="margin-top:28px"><strong>Suggested next step:</strong> an Update run that fixes C1 and H1–H4 (AD-3, 4, 5, 7, 9 tightened; new AD-12) and folds in M1–M8. Stories 1.2, 1.3, 1.4, 2.1, 2.2 and 3.1 then need matching acceptance-criteria edits.</div>
+</main>
+</body>
+</html>

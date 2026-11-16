@@ -50,19 +50,21 @@ From the architecture spine (`ARCHITECTURE-SPINE.md`):
 
 - **No starter template.** Epic 1 Story 1 sets up the project skeleton by hand: the module layout from the Structural Seed, `requirements.txt` with `==` pins, `.gitignore`, `.env.example`, and a runnable empty `app.py`.
 - **Pinned stack:** Python 3.13, streamlit 1.67.0, google-genai 3.3.0, pypdf 7.1.0, pydantic 2.14.3, python-dotenv 1.2.4, pytest 9.2.0 (dev); model `gemini-3.5-flash-lite`, overridable with `GEMINI_MODEL`.
-- **AD-1:** Only `app.py` imports `streamlit`; core modules (`ingest`, `llm`, `demo`, `quiz`, `models`, `errors`, `config`) are plain Python. Pipeline modules never import each other or `app.py`.
+- **AD-1:** Only `app.py` imports `streamlit`; core modules (`ingest`, `llm`, `demo`, `quiz`, `helpers`, `models`, `errors`, `config`) are plain Python. Pipeline modules never import each other or `app.py`.
 - **AD-2:** Exactly one `generate_content` call per Generate, returning one `StudyPack` JSON via `response_mime_type="application/json"` and `response_schema=StudyPack`; no automatic retries.
-- **AD-3:** `StudyPack` (summary: title + sections of heading/bullets; quiz: ≥5 questions, 4 options, `correct_index` 0–3, explanation) is defined once in `models.py`; live and demo output are both validated through it.
-- **AD-4:** Only `llm.py` creates `genai.Client`; entry point `generate_study_pack(text, length, language, settings) -> StudyPack`; missing key raises `MissingApiKey` before any call.
-- **AD-5:** Core raises only `StudyBuddyError` subclasses (`EmptyInput`, `EmptyFile`, `NotPdf`, `NoExtractableText`, `MissingApiKey`, `RateLimited`, `GeminiUnavailable`, `BadModelResponse`); `app.py` maps each to exactly one UX message.
-- **AD-6:** `ingest.py` validates input and returns one non-empty `str` (whitespace-only counts as empty) before any API call.
-- **AD-7:** Fixed session-state keys: `study_pack`, `is_demo`, `input_fingerprint` (written only by Generate); `quiz_answers`, `quiz_checked` (written only by the quiz form and Try again, cleared by Generate). Nothing written to disk.
-- **AD-8:** Prompt templates live in `prompts/`; the schema is passed only via `response_schema`; every prompt change is logged in `PROMPTS.md`.
-- **AD-9:** `config.load_settings(secrets)` is the only reader of `GEMINI_API_KEY`, `MOCK_MODE` and `GEMINI_MODEL`; `app.py` passes `st.secrets` in; the key is never logged or displayed.
-- **AD-10:** Demo mode calls `demo.load_study_pack()` (reads `demo/study_pack.json`, validated as `StudyPack`) and skips `ingest` and `llm`.
-- **AD-11:** Tests never call the live API; `llm`'s network call is monkeypatched; sample inputs live in `test_data/`.
-- **Conventions:** `Length` enum (`short`/`medium`/`long`) and `Language` enum (`en`/`no`) plus the word-range table live in `models.py`; word count is `len(text.split())` over headings and bullets, computed by the app; `quiz_answers` is `list[int | None]` in quiz order.
-- **Deployment:** local `streamlit run app.py`; Streamlit Community Cloud from GitHub `main` with Python 3.13 chosen in Advanced settings and the key in Cloud Secrets. No CI, no database, no logging service.
+- **AD-3:** `StudyPack` (summary: title + sections of heading/bullets; quiz: exactly 5 questions, 4 options, `correct_index` 0–3, explanation) is defined once in `models.py`; live and demo output are both validated through it; `app.py` always holds a `StudyPack` instance.
+- **AD-4:** Only `llm.py` creates `genai.Client`, with a 60 s timeout (`HttpOptions(timeout=60_000)`). `_call_gemini(prompt, settings) -> str | None` makes only the raw call and translates nothing (the test seam). `generate_study_pack(text, length, language, settings) -> StudyPack` checks the key (`MissingApiKey`), calls `_call_gemini`, translates every exception, maps `None`/empty to `BadModelResponse`, and validates with `StudyPack.model_validate_json`.
+- **AD-5:** Core raises only `StudyBuddyError` subclasses (`EmptyInput`, `EmptyFile`, `NotPdf`, `UnreadablePdf`, `NoExtractableText`, `MissingApiKey`, `InvalidApiKey`, `RateLimited`, `MaterialRejected`, `GeminiUnavailable`, `BadModelResponse`). 400 + `API_KEY_INVALID` → `InvalidApiKey` before other 400s → `MaterialRejected`; any `httpx2.TransportError` → `GeminiUnavailable`. `app.py` holds one `ERROR_UI` table (exact type → (`"error"`/`"warning"`, text)) with a fallback row for unmapped `StudyBuddyError` and a last-resort row for any other exception; messages change only there.
+- **AD-6:** One entry point `ingest.read_material(source, pdf_name, pdf_bytes, text) -> str`; checks in order: nothing in the active source → `EmptyInput`, 0 bytes → `EmptyFile`, no `.pdf` / not `%PDF` → `NotPdf`, encrypted PDF that `decrypt("")` can't open, or any other exception while reading → `UnreadablePdf`, whitespace-only text → `NoExtractableText`.
+- **AD-7:** App keys `study_pack`, `is_demo`, `input_fingerprint`, `generated_with` (length, language), `generation_id`, `is_running`, `last_error`, `quiz_answers` (`None` when cleared), `quiz_checked`, `quiz_round`. Widget keys with fixed value types: `source_tab` (tab label → `Source` via `SOURCE_BY_TAB_LABEL`), `pdf_upload`, `paste_text`, `length`/`language` (enum members with label `format_func`), `demo_mode` (seeded once from `Settings.mock_mode`, no `value=`), quiz radios `q_<generation_id>_<quiz_round>_<i>` with options 0–3. Generate: the button has `disabled=is_running` and an `on_click` that sets `is_running`; the pipeline runs on the rerun under the spinner, stores the result or `last_error`, then `st.rerun()`. App keys change only after a `StudyPack` is obtained. The caption reads `generated_with`. Nothing written to disk.
+- **AD-8:** Prompt templates live in `prompts/` with `string.Template` placeholders `$word_range`, `$language_name`, `$material`; the schema is passed only via `response_schema`; every prompt change is logged in `PROMPTS.md`.
+- **AD-9:** `app.py` converts `st.secrets` to a plain dict in try/except (→ `{}` on any error) and passes it to `config.load_settings(secrets) -> Settings(api_key, model, mock_mode)`; values are `str()`-ed, the key is stripped (empty → `None`), `MOCK_MODE` accepts `True`/`"true"`/`"1"`; `config.py` is the only reader of `GEMINI_API_KEY`, `MOCK_MODE` and `GEMINI_MODEL`; the key is never logged or displayed.
+- **AD-10:** Demo mode calls `demo.load_study_pack()` (reads `demo/study_pack.json`, validated as `StudyPack`, failure → `BadModelResponse`) and skips `ingest` and `llm`; `demo.DEMO_LENGTH` / `DEMO_LANGUAGE` feed `generated_with` in demo mode.
+- **AD-11:** Tests never call the live API; `llm._call_gemini` is monkeypatched; sample inputs live in `test_data/`; one manual live smoke call in Story 1.3.
+- **AD-12:** `helpers.py` holds `input_fingerprint(source, raw, length, language, demo)` (SHA-256 over `source|length|language|0|` + the active tab's raw value as bytes; in demo mode only `"demo"`; used at Generate and every rerun) and `word_count(summary)`.
+- **Staging rule:** a story may ship part of an AD's list (messages, fingerprint inputs) when a later named story completes it; the finished app must match every AD.
+- **Conventions:** `Length`, `Language` and `Source` enums, the word-range table, and `LENGTH_LABELS` / `LANGUAGE_LABELS` / `LANGUAGE_PROMPT_NAMES` live in `models.py`; `quiz_answers` is `list[int | None]` in quiz order; use `width="stretch"`, not the deprecated `use_container_width`.
+- **Deployment:** local `streamlit run app.py`; Streamlit Community Cloud from GitHub `main` with Python 3.13 chosen in Advanced settings (confirmed in the build log) and the key in Cloud Secrets; full dependency set frozen into `requirements.txt` before deploy. No CI, no database, no logging service.
 
 ### UX Design Requirements
 
@@ -75,8 +77,8 @@ UX-DR4: An always-visible privacy caption under the input tabs: "Your material i
 UX-DR5: Length as a horizontal radio (Short / Medium / Long), default Medium, each option captioned with its word range.
 UX-DR6: Output Language as a horizontal radio (English / Norsk), default English, side by side with Length.
 UX-DR7: Demo mode `st.toggle` under the options, labelled "Demo mode (example output, no API key needed)", off by default unless `MOCK_MODE=true`; never primary-styled.
-UX-DR8: Generate is the only primary button on the page (full width); it is disabled while running and shows the spinner "Reading your material and writing the summary and quiz…".
-UX-DR9: Error area directly above Generate, one message per problem, with the exact texts from the State Patterns table: no input, wrong file type, empty file, scanned PDF, missing API key (pointing to the README and Demo mode), rate limit (`st.warning`), timeout/network, unusable model response. Every error keeps what the user entered.
+UX-DR8: Generate is the only primary button on the page (full width, `width="stretch"`); it is disabled while running and shows the spinner "Reading your material and writing the summary and quiz…".
+UX-DR9: Error area directly above Generate, one message per problem, with the exact texts from the State Patterns table: no input, wrong file type, empty file, scanned PDF, encrypted or damaged PDF, missing API key (pointing to the README and Demo mode), invalid API key, rate limit (`st.warning`), material rejected by Gemini, timeout/network, unusable model response, unexpected error. Every error keeps what the user entered.
 UX-DR10: Results tabs "Summary" and "Quiz" appear only after a successful Generate, opening on Summary.
 UX-DR11: Summary rendered as markdown topic headings with bullets, plus the caption "{N} words · {length} · {language}"; raw model output is never shown.
 UX-DR12: Quiz in one `st.form`: 5 numbered questions, each a 4-option radio with no preselected answer; "Check answers" (not primary) runs only when all are answered, otherwise `st.warning` "Answer all questions first. Missing: 2, 4." with choices kept.
@@ -160,20 +162,20 @@ So that I never waste a Gemini request on input that won't work.
 **Given** the app is open
 **When** I look at the "Your material" section
 **Then** I see tabs "Upload PDF" (a PDF-only uploader, one file) and "Paste text" (a labelled text area), and below them the caption "Your material is sent to Google Gemini for processing. Nothing is saved." (UX-DR3, UX-DR4)
-**And** a full-width primary Generate button below the input area (UX-DR8)
+**And** a full-width primary Generate button (`width="stretch"`) below the input area (UX-DR8)
 **And** all labels and messages use plain English microcopy with no hype, emoji or exclamation marks (UX-DR17)
 
 **Given** I have content in both tabs
 **When** I press Generate
-**Then** only the active tab's content is used, read via `st.tabs(..., key=..., on_change="rerun")`, and switching tabs never clears the other tab's content
-**And** this tab behaviour is confirmed to work on Streamlit 1.67.0
+**Then** only the active tab's content is used: `st.session_state.source_tab` holds the tab label, mapped to `Source` via `models.SOURCE_BY_TAB_LABEL` (tabs created with `key="source_tab", on_change="rerun"`), and switching tabs never clears the other tab's content (widget keys `pdf_upload`, `paste_text`, AD-7)
+**And** the Generate button has `disabled=is_running` and an `on_click` that clears `last_error` and sets `is_running`; the input is read on the following rerun, and the error area shows `last_error` through `ERROR_UI` (AD-7)
 
 **Given** a text-based PDF from `test_data/`
-**When** `ingest.py` reads it
+**When** `app.py` calls `ingest.read_material(Source.PDF, upload.name, upload.getvalue(), None)`
 **Then** it returns one non-empty `str` with the PDF's text, with no OCR (FR1, AD-6)
 
 **Given** pasted text
-**When** `ingest.py` reads it
+**When** `app.py` calls `ingest.read_material(Source.TEXT, None, None, text)`
 **Then** it returns the same kind of `str` as for a PDF (FR2)
 
 **Given** invalid input
@@ -183,19 +185,21 @@ So that I never waste a Gemini request on input that won't work.
 - a 0-byte file → "This file is empty. Choose another PDF."
 - a non-PDF file → "Only PDF files are supported."
 - a scanned PDF from `test_data/` → "This PDF has no readable text. It's probably scanned. Try a text-based version, or paste the text instead."
+- a password-protected or damaged PDF → "This PDF can't be opened. It may be password-protected or damaged. Try another file, or paste the text instead."
 **And** what I entered stays in place
 
 **Given** the error mapping
 **When** I read the code
-**Then** `ingest.py` raises only `EmptyInput`, `EmptyFile`, `NotPdf` or `NoExtractableText` (subclasses of `StudyBuddyError` in `errors.py`), and `app.py` maps each type to its message in one place (AD-5)
+**Then** `ingest.py` raises only `EmptyInput`, `EmptyFile`, `NotPdf`, `UnreadablePdf` or `NoExtractableText` (subclasses of `StudyBuddyError` in `errors.py`), checked in the AD-6 order; any other exception while reading a PDF becomes `UnreadablePdf`
+**And** `app.py` has one `ERROR_UI` table mapping each exact type to (`"error"` or `"warning"`, text), plus a fallback row for unmapped `StudyBuddyError` types and a last-resort row "Something went wrong. Try Generate again." for any other exception (AD-5)
 
 **Given** valid input
 **When** I press Generate
-**Then** the app confirms it was read (e.g. "Read 1,234 words from your material.") — a temporary result that Story 1.3 replaces with the summary
+**Then** the app confirms it was read (e.g. "Read 1,234 words from your material.") — a temporary result that Story 1.3 replaces with the summary (staging rule)
 
 **Given** `tests/`
 **When** I run `pytest`
-**Then** tests cover PDF extraction success, the scanned-PDF failure, the empty-file and non-PDF rejections, and whitespace-only paste (NFR6)
+**Then** tests cover PDF extraction success, the scanned-PDF failure, the empty-file, non-PDF and user-password-PDF rejections, an owner-password-only PDF that still extracts, an empty active source, and whitespace-only paste (NFR6)
 
 ### Story 1.3: Generate a structured summary in the chosen length and language
 
@@ -211,35 +215,37 @@ So that I can study a dense lecture quickly in the language I want.
 
 **Given** `models.py`
 **When** I read it
-**Then** it defines the `Length` enum (`short`/`medium`/`long`), the `Language` enum (`en`/`no`), the word-range table (<150, 150–400, 400–800), and the Pydantic `StudyPack` (summary title + sections of heading/bullets; quiz of at least 5 questions with exactly 4 options and `correct_index` 0–3, plus explanation) (AD-3)
+**Then** it defines the `Length` enum (`short`/`medium`/`long`), the `Language` enum (`en`/`no`), the `Source` enum (`pdf`/`text`), `LENGTH_LABELS`, `LANGUAGE_LABELS` (English/Norsk), `LANGUAGE_PROMPT_NAMES`, the word-range table (<150, 150–400, 400–800), and the Pydantic `StudyPack` (summary title + sections of heading/bullets; quiz of exactly 5 questions with exactly 4 options and `correct_index` 0–3, plus explanation) (AD-3)
 
 **Given** valid input and a configured `GEMINI_API_KEY`
 **When** I press Generate
-**Then** `llm.generate_study_pack(text, length, language, settings)` makes exactly one `generate_content` call to `gemini-3.5-flash-lite` (or `GEMINI_MODEL`) with `response_mime_type="application/json"` and `response_schema=StudyPack`, and returns a validated `StudyPack` that already contains the Quiz and Answer Key (FR7, FR8, AD-2, AD-4)
-**And** the Generate button is disabled and the spinner reads "Reading your material and writing the summary and quiz…" until the result arrives (FR11, UX-DR8)
+**Then** `llm.generate_study_pack(text, length, language, settings)` makes exactly one `generate_content` call, through `_call_gemini(prompt, settings) -> str | None` (raw call only, no error translation), to `gemini-3.5-flash-lite` (or `GEMINI_MODEL`) with `response_mime_type="application/json"`, `response_schema=StudyPack` and a 60 s timeout, and returns a `StudyPack` validated with `model_validate_json` that already contains the Quiz and Answer Key (FR7, FR8, AD-2, AD-4)
+**And** the Length and Language radios use `Length`/`Language` enum members as options with labels from `LENGTH_LABELS`/`LANGUAGE_LABELS` via `format_func` (AD-7)
+**And** `is_running` (set by the Generate `on_click`) keeps the Generate button disabled while the pipeline runs on the next rerun, and the spinner reads "Reading your material and writing the summary and quiz…" until the result arrives (FR11, UX-DR8, AD-7)
 
 **Given** the prompt
 **When** I read `prompts/`
-**Then** the system and user templates are text files filled with the chosen word range and Output Language, the JSON schema is not repeated in the prompt, and `PROMPTS.md` has a first entry describing version 1 (AD-8, NFR5)
+**Then** the system and user templates are text files using the placeholders `$word_range`, `$language_name` and `$material` (filled with `string.Template.safe_substitute`), the JSON schema is not repeated in the prompt, and `PROMPTS.md` has a first entry describing version 1 (AD-8, NFR5)
 
 **Given** a successful generation
 **When** the result appears
-**Then** the Summary is rendered as markdown topic headings with bullets, followed by the caption "{N} words · {length} · {language}", where N is `len(text.split())` over headings and bullets (UX-DR11)
+**Then** the Summary is rendered as markdown topic headings with bullets, followed by the caption "N words · length · language" built from `helpers.word_count` and `generated_with` (not the live widgets) (UX-DR11, AD-12)
 **And** the raw JSON is never shown
-**And** `study_pack` and `input_fingerprint` are stored in `st.session_state`, written only by the Generate handler (AD-7)
+**And** `study_pack` (a `StudyPack` instance), `generated_with`, `input_fingerprint` (from `helpers.input_fingerprint(source, raw, length, language, demo=False)`, with `raw` as PDF bytes or pasted text) and `generation_id` are stored in `st.session_state`, written only by the Generate pipeline after success (AD-7, AD-12)
+**And** a Gemini failure not yet mapped (until Story 1.4) shows the `ERROR_UI` fallback message instead of crashing (staging rule)
 
 **Given** `config.py`
 **When** the app starts
-**Then** `config.load_settings(st.secrets)` returns the key from secrets or `.env`, and the key is never logged or displayed (AD-9)
+**Then** `app.py` converts `st.secrets` to a dict in try/except (falling back to `{}` when no `secrets.toml` exists) and `config.load_settings(...)` returns `Settings` with the key from secrets or `.env` (stripped; empty → `None`); the app starts without a crash when only `.env` exists, and the key is never logged or displayed (AD-9)
 
 **Given** the Norwegian PDF in `test_data/` with Medium + English
-**When** I generate
-**Then** the summary is in English and 150–400 words (manual check, FR5, FR6)
+**When** I generate with the real API (one manual smoke call)
+**Then** the structured JSON request succeeds on google-genai 3.3.0, and the summary is in English and 150–400 words (manual check, FR5, FR6)
 **And** a manual summary-quality checklist (what a good summary must contain) is written and run against one of my real lecture PDFs, with no filler padding (NFR6, NFR11)
 
 **Given** `tests/`
 **When** I run `pytest`
-**Then** the network call is monkeypatched, and tests cover: `StudyPack` validation (rejects 3 options, `correct_index` 4, fewer than 5 questions), the prompt containing the right word range and language, and word counting (AD-11)
+**Then** `llm._call_gemini` is monkeypatched, and tests cover: `StudyPack` validation (rejects 3 options, `correct_index` 4, 4 or 6 questions), the prompt containing the right word range and language name, `helpers.word_count`, `helpers.input_fingerprint` (equal inputs → equal hash), and `config.load_settings` with an empty mapping, a whitespace-only key, and `MOCK_MODE` given as a TOML boolean (AD-9, AD-11, AD-12)
 
 ### Story 1.4: Clear messages when Gemini fails
 
@@ -251,28 +257,37 @@ So that I know whether to wait, fix my setup or just try again, without the app 
 
 **Given** no `GEMINI_API_KEY` in secrets or `.env`
 **When** I press Generate with valid input
-**Then** `llm.py` raises `MissingApiKey` before any call, and the error area shows "No Gemini API key found. See the README section 'Get a free Gemini API key'."
+**Then** `llm.py` raises `MissingApiKey` before any call, and the error area shows "No Gemini API key found. See the README section 'Get a free Gemini API key'." (Story 3.1 adds the Demo mode hint in `ERROR_UI`; staging rule)
 
 **Given** Gemini returns HTTP 429
 **When** I press Generate
 **Then** `RateLimited` is raised and an `st.warning` reads "Gemini's free limit was reached. Wait a minute and try again."
 
-**Given** a timeout, network failure or any other `errors.APIError`
+**Given** Gemini rejects the API key (HTTP 400 with reason `API_KEY_INVALID`)
+**When** I press Generate
+**Then** `InvalidApiKey` is raised (checked before the general 400 rule) and the message reads "Gemini didn't accept the API key. Check GEMINI_API_KEY (see the README)."
+
+**Given** Gemini returns any other HTTP 400 (e.g. the material is too long)
+**When** I press Generate
+**Then** `MaterialRejected` is raised and the message reads "Gemini couldn't process this material. It may be too long. Try a shorter part."
+
+**Given** a timeout (60 s), any other transport failure (`httpx2.TransportError`: connection, read or protocol errors) or any other `errors.APIError`
 **When** I press Generate
 **Then** `GeminiUnavailable` is raised and the message reads "Couldn't reach Gemini. Check your connection and try again."
 
-**Given** a response that is not valid JSON or fails `StudyPack` validation
+**Given** a response that is empty, blocked, not valid JSON, or fails `StudyPack` validation
 **When** I press Generate
 **Then** `BadModelResponse` is raised and the message reads "The answer from Gemini couldn't be read. Try Generate again."
 **And** there is no automatic retry (AD-2)
 
 **Given** any of these failures
 **When** the message appears
-**Then** my input, Length and Output Language are kept, any earlier results stay as they were, the app does not crash, and the original exception is printed to the console (UX-DR9, AD-5)
+**Then** my input, Length and Output Language are kept, no app key except `is_running` changes so earlier results stay as they were, the app does not crash, and the original exception is printed to the console (UX-DR9, AD-5, AD-7)
+**And** each message and its style (error or warning) come from the `ERROR_UI` table
 
 **Given** `tests/`
 **When** I run `pytest`
-**Then** each failure is simulated with the network call monkeypatched and maps to the right error type
+**Then** each failure is simulated by monkeypatching `llm._call_gemini` to raise the real SDK or `httpx2` exception (or return `None`), and `generate_study_pack` maps it to the right error type (AD-4)
 
 ## Epic 2: Self-test with the quiz
 
@@ -292,7 +307,7 @@ So that I know exactly which topics to re-read.
 
 **Given** the Quiz tab
 **When** I open it
-**Then** I see the generated questions numbered 1–5 in one `st.form`, each a labelled 4-option radio with no option preselected, and a "Check answers" button that is not primary-styled (UX-DR12, UX-DR16)
+**Then** I see the 5 generated questions numbered 1–5 in one `st.form`, each a labelled radio with options `[0, 1, 2, 3]` shown via `format_func` as the option text, keyed `q_<generation_id>_<quiz_round>_<i>`, with no option preselected, and a "Check answers" button that is not primary-styled (UX-DR12, UX-DR16, AD-7)
 **And** the questions and options are in the chosen Output Language
 
 **Given** at least one question unanswered
@@ -307,11 +322,15 @@ So that I know exactly which topics to re-read.
 
 **Given** checked results
 **When** I press Try again
-**Then** `quiz_answers` and `quiz_checked` are cleared, the same questions are shown unanswered, and no Gemini request is made
+**Then** `quiz_answers` is set to `None`, `quiz_checked` to `False`, and `quiz_round` is incremented, so the same questions are shown with fresh, unanswered radios, and no Gemini request is made
+
+**Given** a new successful generation
+**When** the Quiz tab shows the new questions
+**Then** no radio carries over a choice from the previous quiz, because `generation_id` changed and `quiz_round` was reset to 0 (AD-7)
 
 **Given** any quiz interaction (selecting, checking, Try again)
 **When** Streamlit reruns
-**Then** `study_pack` is unchanged and no Gemini request is made; only the quiz form and Try again write `quiz_answers` and `quiz_checked`, and Generate clears them (AD-7)
+**Then** `study_pack` is unchanged and no Gemini request is made; only the quiz form and Try again write `quiz_answers`, `quiz_checked` and `quiz_round` (AD-7)
 
 **Given** `tests/`
 **When** I run `pytest`
@@ -340,8 +359,8 @@ So that I don't mistake an old summary and quiz for ones that match my new choic
 
 **Given** the fingerprint
 **When** I read the code
-**Then** `input_fingerprint` is a hash of the source text, Length and Output Language (Story 3.1 adds the demo flag), stored only by the Generate handler and compared on every rerun (AD-7)
-**And** a `pytest` test confirms that changing any one of the three inputs changes the fingerprint and that equal inputs give equal fingerprints
+**Then** `helpers.input_fingerprint(source, raw, length, language, demo)` (created in Story 1.3) hashes (SHA-256) `source|length|language|0|` plus the active tab's raw widget value (PDF bytes or `b""`, pasted text or `""`); until Story 3.1 the demo argument is always `False` (staging rule); the Generate pipeline stores the result and every rerun recomputes it with the same widget values and compares (AD-7, AD-12)
+**And** a `pytest` test confirms that changing the active tab, the raw value, Length or Output Language changes the fingerprint, and that equal inputs give equal fingerprints
 
 ## Epic 3: Ready to hand in and run by anyone
 
@@ -361,7 +380,7 @@ So that I can try the whole summary and quiz flow before setting up a key.
 
 **Given** `MOCK_MODE=true` in the environment or secrets
 **When** the app starts
-**Then** the toggle starts switched on (read through `config.load_settings`, AD-9)
+**Then** the toggle (widget key `demo_mode`) starts switched on, seeded only with `if "demo_mode" not in st.session_state: st.session_state.demo_mode = settings.mock_mode` and drawn without `value=`, so no Streamlit warning appears (AD-7, AD-9)
 
 **Given** Demo mode is on and no API key is configured
 **When** I press Generate
@@ -371,15 +390,21 @@ So that I can try the whole summary and quiz flow before setting up a key.
 **Given** demo results are shown
 **When** I look at either tab
 **Then** a persistent `st.warning` at the top of the results reads "Demo mode — example output, not generated from your material." (UX-DR15)
-**And** `is_demo` in session state is set only by the Generate handler
+**And** `is_demo` in session state is set only by the Generate pipeline
+**And** the summary caption shows `demo.DEMO_LENGTH` and `demo.DEMO_LANGUAGE` (stored in `generated_with`), not the live widget settings (AD-10)
 
 **Given** results exist
 **When** I switch Demo mode on or off
-**Then** the stale-results note from Story 2.2 appears, because the demo flag is now part of `input_fingerprint`
+**Then** the stale-results note from Story 2.2 appears, because `app.py` now passes the real demo flag to `helpers.input_fingerprint`
+**And** while demo results are shown, editing the input, Length or Language does not show the note (the demo fingerprint covers only the demo flag, AD-12)
 
 **Given** no API key and Demo mode off
 **When** I press Generate
-**Then** the missing-key message now reads "No Gemini API key found. See the README section 'Get a free Gemini API key', or turn on Demo mode to see example output."
+**Then** the missing-key message now reads "No Gemini API key found. See the README section 'Get a free Gemini API key', or turn on Demo mode to see example output." (changed only in `ERROR_UI`)
+
+**Given** `demo/study_pack.json` is invalid
+**When** I press Generate in Demo mode
+**Then** `BadModelResponse` is raised and its normal message is shown, without a crash (AD-10)
 
 **Given** `demo/study_pack.json`
 **When** I read it
@@ -387,7 +412,8 @@ So that I can try the whole summary and quiz flow before setting up a key.
 
 **Given** `tests/`
 **When** I run `pytest`
-**Then** tests confirm the demo file validates as a `StudyPack`, Demo mode makes no network call (the call is monkeypatched to fail if used), and the fingerprint changes when the demo flag changes
+**Then** core-level tests confirm the demo file validates as a `StudyPack`, `demo.load_study_pack()` works with `llm._call_gemini` monkeypatched to fail if called, and the fingerprint changes when the demo flag changes but not when the input changes in demo mode (AD-11)
+**And** a manual check in the running app confirms no Gemini request is made in Demo mode (e.g. it works with no key and no network)
 
 ### Story 3.2: Run the app on Streamlit Community Cloud
 
@@ -399,7 +425,7 @@ So that I and the grader can use it in a browser without installing anything.
 
 **Given** the repository on GitHub `main`
 **When** I deploy it on Streamlit Community Cloud
-**Then** Python 3.13 is selected in Advanced settings, dependencies install from `requirements.txt`, and `GEMINI_API_KEY` is set in the app's Secrets, never in the repo (NFR8, NFR10)
+**Then** Python 3.13 is selected in Advanced settings and confirmed in the build log, dependencies install from `requirements.txt` with the full dependency set frozen (`pip freeze`) before this deploy, and `GEMINI_API_KEY` is set in the app's Secrets, never in the repo (NFR8, NFR10)
 
 **Given** the deployed app
 **When** I generate from the Norwegian PDF in `test_data/` with Medium + English
@@ -430,6 +456,7 @@ So that I can run, test and assess the project without help from the builder.
 **When** I read it
 **Then** it explains: what the app does; local setup with Python 3.13 and `requirements.txt`; how to get a free Gemini API key from Google AI Studio (no credit card) and put it in `.env` (based on `.env.example`) or `.streamlit/secrets.toml`; how to run `streamlit run app.py`; how to use Demo mode or `MOCK_MODE=true` without a key; how to run `pytest`; and the deployed app URL from Story 3.2 (NFR9)
 **And** it has a section titled "Get a free Gemini API key", which the missing-key message points to
+**And** it notes that two harmless `SyntaxWarning` lines from google-genai may appear in the console, and that a deprecated model is replaced by setting `GEMINI_MODEL`
 
 **Given** the README
 **When** I read the privacy section

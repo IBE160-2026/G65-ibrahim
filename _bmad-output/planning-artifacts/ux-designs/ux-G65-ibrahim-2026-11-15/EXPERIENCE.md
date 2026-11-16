@@ -71,10 +71,14 @@ Behavioral. Visual specs live in `DESIGN.md` Components.
 | Wrong file type | Error area | Normally blocked by the uploader. Fallback: "Only PDF files are supported." (FR-4) |
 | Empty file (0 bytes) | Error area | "This file is empty. Choose another PDF." No API call. (FR-4) |
 | Scanned / image PDF | Error area | "This PDF has no readable text. It's probably scanned. Try a text-based version, or paste the text instead." No API call. (FR-3) |
+| Encrypted or damaged PDF | Error area | "This PDF can't be opened. It may be password-protected or damaged. Try another file, or paste the text instead." No API call. (FR-4) |
 | Missing API key | Error area, on first Generate | "No Gemini API key found. See the README section 'Get a free Gemini API key', or turn on Demo mode to see example output." |
 | Demo mode results | Top of results block | Persistent `st.warning`: "Demo mode — example output, not generated from your material." Shown on both tabs. |
 | Rate limit (free tier) | Error area | `st.warning`: "Gemini's free limit was reached. Wait a minute and try again." Inputs kept. |
 | Timeout / network error | Error area | "Couldn't reach Gemini. Check your connection and try again." Inputs kept. |
+| Invalid API key (Gemini rejects the key) | Error area | "Gemini didn't accept the API key. Check GEMINI_API_KEY (see the README)." Inputs kept. |
+| Unexpected error (anything not listed here) | Error area | "Something went wrong. Try Generate again." Inputs kept; details printed to the console only. |
+| Material rejected by Gemini (HTTP 400, e.g. too long) | Error area | "Gemini couldn't process this material. It may be too long. Try a shorter part." Inputs kept. |
 | Unusable model response | Error area | "The answer from Gemini couldn't be read. Try Generate again." Raw response is never shown to the user. |
 | Stale results | Above results block | If the input, Length or Output Language changes after a generation: `st.info`: "Settings changed. Press Generate to update." Old results stay visible until regenerated. `[ASSUMPTION]` |
 | Quiz unanswered questions | Quiz form | Check answers with blanks: nothing is checked. `st.warning`: "Answer all questions first. Missing: 2, 4." Chosen answers are kept. |

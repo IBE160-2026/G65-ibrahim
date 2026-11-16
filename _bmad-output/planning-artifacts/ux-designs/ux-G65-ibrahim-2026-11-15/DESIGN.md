@@ -40,7 +40,7 @@ spacing:
   section-break: 'st.divider'
 components:
   generate-button:
-    note: 'st.button(type="primary", use_container_width=True)'
+    note: 'st.button(type="primary", width="stretch")'
     background: '{colors.primary}'
   input-tabs:
     note: 'st.tabs(["Upload PDF", "Paste text"])'
