@@ -6,4 +6,5 @@
 - [x] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Settle mock-mode trigger: `MOCK_MODE` env var (PRD feedback) vs. in-app toggle (UX) (løst 2026-11-15: both — toggle, on at start with MOCK_MODE=true)
 - [ ] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Add UX states for summary outside the word range (±10 %) and for over-long pasted text (PRD feedback 4.1/4.5)
 - [x] 2026-11-15 [ux-design-spines](999-2026-11-15-16-17-28-ux-design-spines.md) — Clarify the role of `architecture/technology.md` (another project's Next.js/FastAPI stack) vs. Streamlit (løst 2026-11-15: not used; stack stays Streamlit + Gemini)
-- [ ] 2026-11-16 [architecture-spine](998-2026-11-16-15-56-05-architecture-spine.md) — README: disclose that free-tier Gemini input is used to improve Google products
+- [ ] 2026-11-16 [architecture-spine](998-2026-11-16-15-56-05-architecture-spine.md) — README: disclose that free-tier Gemini input is used to improve Google products — now an acceptance criterion in Story 3.3
+- [ ] 2026-11-16 [epics-and-stories](997-2026-11-16-16-54-29-epics-and-stories.md) — Story 1.2: confirm active-tab detection with `st.tabs(key=..., on_change=...)` works on streamlit 1.67.0
