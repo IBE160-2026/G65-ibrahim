@@ -15,6 +15,6 @@
 - [ ] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Review the word-range note text in EXPERIENCE.md (written by Claude)
 - [ ] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Pasted-text length cap (PRD feedback 4.5) still deferred; only MaterialRejected covers oversized input
 - [ ] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Make FR-7 "structured, readable" testable (e.g. a heading and at least 3 bullets/paragraphs)
-- [ ] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Run lint_spine.py on the updated spine once Python 3.13 is installed
+- [x] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Run lint_spine.py on the updated spine once Python 3.13 is installed (løst 2026-11-22: 0 findings)
 - [x] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Run `sprint_plan.py validate` on the hand-built sprint-status.yaml once a working Python is available (løst 2026-11-22: valid, generate --dry-run in_sync)
 - [ ] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Align PRD §7 Cost ("throttling and/or caching") with the architecture's "no throttling, user waits"
