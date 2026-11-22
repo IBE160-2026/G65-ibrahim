@@ -24,11 +24,12 @@ FR4: Invalid uploads (wrong file type, 0-byte file) are rejected with a clear er
 FR5: User selects summary Length before generating: short (<150 words), medium (150–400), long (400–800).
 FR6: User selects Output Language (Norwegian or English), independent of the source language; it applies to both Summary and Quiz.
 FR7: The system generates a structured Summary via the Gemini API using an engineered prompt (not a raw pass-through), respecting Length and Output Language.
-FR8: The system generates a Quiz of at least 5 questions in the same request as the Summary; each question is multiple choice with exactly 4 options and exactly 1 correct option, stored as the Answer Key before the user answers.
+FR8: The system generates a Quiz of exactly 5 questions in the same request as the Summary; each question is multiple choice with exactly 4 options and exactly 1 correct option, stored as the Answer Key before the user answers.
 FR9: User can submit Quiz answers and see, per question, whether each matched the Answer Key.
 FR10: Summary and Quiz are shown together in one results view, reachable without extra navigation.
 FR11: A visible loading indicator is shown while waiting for the Gemini response.
 FR12: User can turn on Demo mode with an in-app toggle (on at start when `MOCK_MODE=true`); Generate then returns a saved example Summary and Quiz without calling Gemini, always labelled as example output.
+FR13: Failed or unusable Gemini responses show a clear message, never an unhandled exception (unparseable response → try again; 429 or timeout >60 s → wait; missing key → README). A Summary outside its word range ±10 % is still shown, with a note.
 
 ### NonFunctional Requirements
 
@@ -102,12 +103,13 @@ FR9: Epic 2 - Answer the Quiz and see per-question results
 FR10: Epic 1 + Epic 2 - Summary view (Epic 1), Summary and Quiz tabs together (Epic 2)
 FR11: Epic 1 - Loading indicator while Gemini responds
 FR12: Epic 3 - Demo mode with saved example output
+FR13: Epic 1 - Word-range note (Story 1.3) and Gemini error messages (Story 1.4)
 
 ## Epic List
 
 ### Epic 1: Turn course material into a summary
 Abdiaziz uploads a lecture PDF or pastes notes, chooses Length and Output Language, and gets a structured summary, with clear messages for every invalid input and every Gemini failure. Includes the hand-built project setup and the test-data folder.
-**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR10 (Summary), FR11
+**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR10 (Summary), FR11, FR13
 
 ### Epic 2: Self-test with the quiz
 Abdiaziz answers the 5 questions in the Quiz tab, checks them, and sees the score, which answers were right or wrong, and the correct answers. Try again resets without a new request, and a note appears when settings change after a generation.
@@ -234,6 +236,12 @@ So that I can study a dense lecture quickly in the language I want.
 **And** `study_pack` (a `StudyPack` instance), `generated_with`, `input_fingerprint` (from `helpers.input_fingerprint(source, raw, length, language, demo=False)`, with `raw` as PDF bytes or pasted text) and `generation_id` are stored in `st.session_state`, written only by the Generate pipeline after success (AD-7, AD-12)
 **And** a Gemini failure not yet mapped (until Story 1.4) shows the `ERROR_UI` fallback message instead of crashing (staging rule)
 
+**Given** a successful generation whose Summary word count is outside the generated Length's range ±10 % (Short 0–165, Medium 135–440, Long 360–880)
+**When** the result appears
+**Then** the Summary is still shown as normal, and directly under the caption an `st.info` reads "This summary has {N} words. {Length} aims for {range} words." (e.g. "Medium aims for 150–400 words."; Short reads "under 150 words") (FR5, FR13, AD-12)
+**And** the check uses `helpers.within_word_range(helpers.word_count(...), generated_with.length)`, not the live radio, and the error area stays empty
+**And** inside the tolerance, no note is shown
+
 **Given** `config.py`
 **When** the app starts
 **Then** `app.py` converts `st.secrets` to a dict in try/except (falling back to `{}` when no `secrets.toml` exists) and `config.load_settings(...)` returns `Settings` with the key from secrets or `.env` (stripped; empty → `None`); the app starts without a crash when only `.env` exists, and the key is never logged or displayed (AD-9)
@@ -245,7 +253,7 @@ So that I can study a dense lecture quickly in the language I want.
 
 **Given** `tests/`
 **When** I run `pytest`
-**Then** `llm._call_gemini` is monkeypatched, and tests cover: `StudyPack` validation (rejects 3 options, `correct_index` 4, 4 or 6 questions), the prompt containing the right word range and language name, `helpers.word_count`, `helpers.input_fingerprint` (equal inputs → equal hash), and `config.load_settings` with an empty mapping, a whitespace-only key, and `MOCK_MODE` given as a TOML boolean (AD-9, AD-11, AD-12)
+**Then** `llm._call_gemini` is monkeypatched, and tests cover: `StudyPack` validation (rejects 3 options, `correct_index` 4, 4 or 6 questions), the prompt containing the right word range and language name, `helpers.word_count`, `helpers.within_word_range` at the edges (e.g. Medium: 135 and 440 in, 134 and 441 out; Short: 165 in, 166 out), `helpers.input_fingerprint` (equal inputs → equal hash), and `config.load_settings` with an empty mapping, a whitespace-only key, and `MOCK_MODE` given as a TOML boolean (AD-9, AD-11, AD-12)
 
 ### Story 1.4: Clear messages when Gemini fails
 

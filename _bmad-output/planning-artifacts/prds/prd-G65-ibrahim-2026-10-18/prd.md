@@ -2,20 +2,20 @@
 title: AI Study Buddy
 status: final
 created: 2026-10-18
-updated: 2026-11-15
+updated: 2026-11-22
 ---
 
 # PRD: AI Study Buddy
 
 ## 0. Document Purpose
 
-This PRD translates the product brief (`_bmad-output/planning-artifacts/briefs/brief-G65-ibrahim-2026-09-11/brief.md`, revised 2026-10-18 per lecturer feedback) into requirements a solo builder can implement directly and a grader can trace against the finished app. It is written for Abdiaziz (builder) and whoever grades IBE160's Del 1 submission. Terms are defined once in the Glossary and used verbatim throughout; features are grouped with globally numbered Functional Requirements (FR-1, FR-2, ...) nested under them; inferences the brief didn't spell out are tagged inline as `[ASSUMPTION]` and indexed in §13.
+This PRD translates the product brief (`_bmad-output/planning-artifacts/briefs/brief-G65-ibrahim-2026-09-11/brief.md`, revised 2026-10-18 per lecturer feedback) into requirements a solo builder can implement directly and a grader can trace against the finished app. It is written for Abdiaziz (builder) and whoever grades IBE160's Del 1 submission. Terms are defined once in the Glossary and used verbatim throughout; features are grouped with globally numbered Functional Requirements (FR-1, FR-2, ...) nested under them; inferences the brief didn't spell out are tagged inline as `[ASSUMPTION]` and indexed in §14.
 
 ## 1. Vision
 
 AI Study Buddy turns a lecture PDF or pasted text into two things in one pass: a structured summary at a chosen length and language, and a short self-test quiz with an answer key covering the same material. It exists so Abdiaziz can process dense Norwegian/English course material faster and check whether he actually absorbed it, instead of manually re-reading and condensing it himself.
 
-It is deliberately small: one person, new to programming, building against a near-term deadline. The two features share one pipeline (parse material → LLM call → structured output), which is what makes doing both in v1 realistic rather than reckless. It is not solving something no AI tool can do — see §4 Non-Goals and the brief's "What Makes This Different" — it is removing the friction of doing this manually, repeatedly, across courses.
+It is deliberately small: one person, new to programming, building against a near-term deadline. The two features share one pipeline (parse material → LLM call → structured output), which is what makes doing both in v1 realistic rather than reckless. It is not solving something no AI tool can do — see §5 Non-Goals and the brief's "What Makes This Different" — it is removing the friction of doing this manually, repeatedly, across courses.
 
 ## 2. Target User
 
@@ -47,7 +47,7 @@ Other students are explicitly not users of v1 — no accounts, no multi-tenancy,
 - **Summary** — the structured, LLM-generated condensation of Course Material, produced at a selected Length and Output Language.
 - **Length** — one of three selectable summary sizes: short (<150 words), medium (150–400 words), long (400–800 words).
 - **Output Language** — Norwegian or English; the language the Summary (and Quiz) are generated in, independent of the Course Material's source language.
-- **Quiz** — a set of at least 5 questions generated from the same Course Material as the Summary, each with a stored correct answer (the **Answer Key**).
+- **Quiz** — a set of exactly 5 questions generated from the same Course Material as the Summary, each with a stored correct answer (the **Answer Key**).
 - **Answer Key** — the correct answer for each Quiz question, used to check the user's submitted answers.
 - **Gemini API (free tier)** — the external LLM service (Google Gemini) used for both Summary and Quiz generation. The only external dependency in v1.
 
@@ -103,6 +103,7 @@ User selects summary Length (short/medium/long) before generating.
 
 **Consequences (testable):**
 - Selecting "short" produces a summary under 150 words; "medium" produces 150–400 words; "long" produces 400–800 words.
+- Words are counted by splitting the Summary on whitespace. A Summary counts as correct if its word count is within the selected range ±10 %.
 
 #### FR-6: Output language selection
 
@@ -130,10 +131,10 @@ System generates a Summary from Course Material via the Gemini API, respecting t
 
 #### FR-8: Quiz generation with answer key
 
-System generates a Quiz of at least 5 questions from the Course Material, each with a stored correct Answer Key entry, alongside the Summary in the same generation request. Questions are multiple choice with 4 options and exactly 1 correct option, so correct/incorrect checking is unambiguous (decided in UX, `ux-designs/ux-G65-ibrahim-2026-11-15/EXPERIENCE.md`).
+System generates a Quiz of exactly 5 questions from the Course Material, each with a stored correct Answer Key entry, alongside the Summary in the same generation request. Questions are multiple choice with 4 options and exactly 1 correct option, so correct/incorrect checking is unambiguous (decided in UX, `ux-designs/ux-G65-ibrahim-2026-11-15/EXPERIENCE.md`).
 
 **Consequences (testable):**
-- Every generated Quiz has at least 5 questions.
+- Every generated Quiz has exactly 5 questions.
 - Every question has exactly 4 options and exactly 1 correct option.
 - Every question has a corresponding stored correct answer before the user submits anything.
 
@@ -182,6 +183,22 @@ User can turn on Demo mode with an in-app toggle. While it is on, Generate retur
 - No Gemini API call is made while Demo mode is on.
 - Demo output is always labelled as example output, never presented as generated from the user's material.
 
+### 4.6 Gemini Error Handling
+
+**Description:** Covers what happens when the Gemini API call fails or returns something unusable, so the user always gets an understandable message instead of a crash. Realizes the error paths of UJ-1.
+
+**Functional Requirements:**
+
+#### FR-13: Error handling for Gemini calls
+
+System handles failed or unusable Gemini API responses with a clear message and never shows an unhandled exception.
+
+**Consequences (testable):**
+- An invalid or unparseable structured response shows an understandable message, and the user can try again, without an unhandled exception.
+- HTTP 429 (rate limit) or a timeout (>60 s) shows a message advising the user to wait before trying again.
+- A missing API key shows a message pointing to the README.
+- If the Summary is outside the selected word range (FR-5, after the ±10 % tolerance), it is still shown, but with a note.
+
 ## 5. Non-Goals (Explicit)
 
 - Not building OCR or any scanned/image-PDF support in v1.
@@ -197,9 +214,10 @@ User can turn on Demo mode with an in-app toggle. While it is on, Generate retur
 
 - PDF upload (text-based only) and pasted-text input (§4.1)
 - Summary generation: length + language selection (§4.2)
-- Quiz generation with answer key: ≥5 questions, submit-and-check flow (§4.3)
+- Quiz generation with answer key: exactly 5 questions, submit-and-check flow (§4.3)
 - Clean, simple Streamlit UI with loading feedback (§4.4)
 - Demo mode with saved example output, usable without an API key (§4.5)
+- Clear error messages when the Gemini call fails (§4.6)
 - Documentation explaining how the app and its AI use work
 - Secrets handled via `.env` or Streamlit `secrets.toml`, both gitignored; `.env.example` committed with placeholder values
 - A dedicated test-data folder with sample documents: Norwegian PDF, English PDF, mixed-language text, scanned/invalid PDF
@@ -230,7 +248,7 @@ User can turn on Demo mode with an in-app toggle. While it is on, Generate retur
 *Added because the grading rubric weights "process and AI governance" at 30% — the heaviest single criterion — and both the brief and lecturer feedback explicitly call for demonstrable, non-naive prompt engineering.*
 
 - Summary and Quiz generation must use a deliberately engineered prompt — not a direct pass-through of the raw extracted text — and must request structured output (e.g., a defined schema separating the Summary text from the Quiz questions/answers) rather than freeform chat-style text, so the app can parse results reliably.
-- `[ASSUMPTION: Summary and Quiz are produced by a single Gemini request per submission, combining both outputs in one structured response, to conserve free-tier rate-limit budget — confirm during architecture.]`
+- Summary and Quiz are produced by a single Gemini request per submission, combining both outputs in one structured response, to conserve free-tier rate-limit budget (decided 2026-11-16 in architecture, AD-2).
 - Prompt iterations (what changed and why — e.g., tightening length adherence, fixing language leakage, improving quiz-answer unambiguity) should be captured somewhere durable (e.g., a `PROMPTS.md` or commit history with descriptive messages), so a grader can trace the AI-governance process from brief → PRD → actual prompt decisions. `[NOTE FOR PM: exact location/format for this log is an implementation decision, not a PRD requirement — flag for the architecture phase.]`
 
 ## 10. Testing & Quality Assurance
@@ -252,7 +270,7 @@ User can turn on Demo mode with an in-app toggle. While it is on, Generate retur
 ## 12. Success Metrics
 
 **Primary**
-- **SM-1:** All functional success criteria in §4 (FR-1 through FR-12 consequences) pass verification — via automated test where listed in §10, manual checklist otherwise — before submission. Validates FR-1–FR-12.
+- **SM-1:** All functional success criteria in §4 (FR-1 through FR-13 consequences) pass verification — via automated test where listed in §10, manual checklist otherwise — before submission. Validates FR-1–FR-13.
 - **SM-2:** A person unfamiliar with the project can run the app locally end-to-end using only the README, without the builder's intervention: in Demo mode without a key, and in live mode with their own free key. Validates §11, FR-12.
 
 **Secondary**
@@ -264,10 +282,10 @@ User can turn on Demo mode with an in-app toggle. While it is on, Generate retur
 ## 13. Open Questions
 
 1. Exact submission deadline and deliverable format are unconfirmed against the actual IBE160 syllabus — the brief currently marks this **Urgent** (reported as due now/overdue). Needs resolution immediately; may force further scope cuts.
-2. Whether Summary and Quiz are generated via one combined Gemini request or two separate calls — affects rate-limit exposure and prompt design. Deferred to architecture.
+2. ~~One combined Gemini request or two separate calls~~ — resolved 2026-11-16 in architecture: one combined request (AD-2 in `architecture/architecture-G65-ibrahim-2026-11-16/ARCHITECTURE-SPINE.md`).
 3. ~~Exact Quiz question format~~ — resolved 2026-11-15 in UX: multiple choice, 4 options, 1 correct (FR-8).
 4. ~~Canned-response test mode for graders~~ — resolved 2026-11-15 in UX: included as Demo mode (FR-12).
 
 ## 14. Assumptions Index
 
-- §9 — Summary and Quiz assumed to be generated via a single combined Gemini request per submission, to conserve free-tier rate-limit budget.
+- ~~§9 — Summary and Quiz assumed to be generated via a single combined Gemini request per submission, to conserve free-tier rate-limit budget.~~ Resolved 2026-11-16 in architecture (AD-2).

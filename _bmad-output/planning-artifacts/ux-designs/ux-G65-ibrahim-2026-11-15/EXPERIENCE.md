@@ -1,7 +1,7 @@
 ---
 name: AI Study Buddy
 status: final
-updated: 2026-11-15
+updated: 2026-11-22
 sources:
   - _bmad-output/planning-artifacts/briefs/brief-G65-ibrahim-2026-09-11/brief.md
   - _bmad-output/planning-artifacts/prds/prd-G65-ibrahim-2026-10-18/prd.md
@@ -24,7 +24,7 @@ One page with two blocks. No navigation, no sidebar.
 | Surface | Reached from | Purpose | FRs |
 |---|---|---|---|
 | Input block | App open | Provide Course Material (PDF or pasted text), choose Length and Output Language, press Generate, optionally turn on Demo mode | FR-1, FR-2, FR-5, FR-6, FR-12 |
-| Results block: Summary tab | Appears after a successful Generate | Read the structured Summary | FR-7, FR-10 |
+| Results block: Summary tab | Appears after a successful Generate | Read the structured Summary | FR-7, FR-10, FR-13 |
 | Results block: Quiz tab | Same results block, second tab | Answer 5 multiple-choice questions, submit, see per-question results | FR-8, FR-9, FR-10 |
 
 Both tabs are always reachable from the same view, which satisfies FR-10 ("without additional navigation"). Layout order is defined in `DESIGN.md` Layout & Spacing.
@@ -56,8 +56,8 @@ Behavioral. Visual specs live in `DESIGN.md` Components.
 | Demo mode toggle | `st.toggle("Demo mode (example output, no API key needed)")` under the options, off by default (on at start when `MOCK_MODE=true`). When on, Generate skips validation and the API and returns a saved example Summary and Quiz from the repo. Works without a Gemini key. (FR-12) |
 | Generate button | Runs validation first (FR-4, FR-3), then one Gemini request for Summary and Quiz together (PRD §9 assumption). Disabled, with a spinner, while the request runs. A second click during a run is impossible. |
 | Results tabs | Shown only after a successful generation. Opens on the Summary tab. |
-| Summary | Rendered markdown: topic headings plus bullets. Caption below: "{N} words · {length} · {language}". |
-| Quiz form | 5 questions (the FR-8 minimum) in one `st.form`, each a 4-option radio with no default answer. One "Check answers" button, which checks only when all 5 are answered. (FR-8, FR-9) |
+| Summary | Rendered markdown: topic headings plus bullets. Caption below: "{N} words · {length} · {language}". If the word count is outside the Length's range ±10 %, the Summary is still shown, with the word-range note under the caption (FR-5, FR-13). |
+| Quiz form | 5 questions (FR-8: exactly 5) in one `st.form`, each a 4-option radio with no default answer. One "Check answers" button, which checks only when all 5 are answered. (FR-8, FR-9) |
 | Quiz results | After Check answers: score line at the top, and under each question a correct/incorrect row with the right answer shown if wrong. Radios stay visible with the user's choices. A "Try again" button clears answers and results (same questions, no new API call). |
 
 ## State Patterns
@@ -67,6 +67,7 @@ Behavioral. Visual specs live in `DESIGN.md` Components.
 | First load | Whole page | Input block only. Results block hidden. Caption under title explains the app in one sentence. |
 | Generating | Generate button area | `st.spinner("Reading your material and writing the summary and quiz…")`. Button disabled. Typical wait under ~30 s (PRD §7). |
 | Success | Results block | Results tabs appear, Summary tab active. |
+| Summary outside word range | Summary tab, under the caption | Summary is shown as normal. `st.info`: "This summary has {N} words. {Length} aims for {range} words." (e.g. "Medium aims for 150–400 words."; Short reads "under 150 words"). Shown only when the count is outside the range ±10 % (Short 0–165, Medium 135–440, Long 360–880). Uses the Length the summary was generated with, not the live radio. Not an error: the error area stays empty. (FR-13) |
 | No input | Error area | "Upload a PDF or paste some text first." No API call. |
 | Wrong file type | Error area | Normally blocked by the uploader. Fallback: "Only PDF files are supported." (FR-4) |
 | Empty file (0 bytes) | Error area | "This file is empty. Choose another PDF." No API call. (FR-4) |

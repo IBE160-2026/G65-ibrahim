@@ -7,8 +7,8 @@ paradigm: 'functional core, imperative shell'
 scope: 'AI Study Buddy v1: single-user Streamlit app that turns a PDF or pasted text into a Summary and Quiz via one Gemini request'
 status: final
 created: '2026-11-16'
-updated: '2026-11-16'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12]
+updated: '2026-11-22'
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13]
 sources:
   - _bmad-output/planning-artifacts/prds/prd-G65-ibrahim-2026-10-18/prd.md
   - _bmad-output/planning-artifacts/ux-designs/ux-G65-ibrahim-2026-11-15/EXPERIENCE.md
@@ -184,7 +184,7 @@ classDiagram
   - The error area shows `last_error` through `ERROR_UI`.
   - A failed Generate changes no app key except `is_running` and `last_error`.
 
-  The summary caption reads `generated_with`, never the live widgets. Nothing is written to disk.
+  The summary caption and the word-range note (AD-12) read `generated_with`, never the live widgets. Nothing is written to disk.
 
 ### AD-8 — Prompts are files with a change log
 
@@ -217,10 +217,10 @@ classDiagram
 - **Prevents:** tests that burn free-tier quota, fail without network, or depend on a key.
 - **Rule:** `pytest` tests cover `ingest.py`, `quiz.py`, `models.py`, `helpers.py`, `demo.py` and `llm.py` (parsing and error translation), with `llm._call_gemini` monkeypatched. Sample inputs live in `test_data/`. The one live call is a manual smoke check in Story 1.3.
 
-### AD-12 — Fingerprint and word count are core helpers
+### AD-12 — Fingerprint, word count and word-range check are core helpers
 
-- **Binds:** FR-10, UX stale-results state, UX summary caption
-- **Prevents:** the stale-results note being always on or never on because the Generate handler and the per-rerun check hash different things; untestable helpers hidden in the shell.
+- **Binds:** FR-5, FR-10, FR-13, UX stale-results state, UX summary caption, UX word-range note
+- **Prevents:** the stale-results note being always on or never on because the Generate handler and the per-rerun check hash different things; the shell and the tests disagreeing on how words are counted or where the ±10 % edge is; untestable helpers hidden in the shell.
 - **Rule:** `helpers.py` defines:
   - `input_fingerprint(source: Source, raw: bytes | str, length: Length, language: Language, demo: bool) -> str`: SHA-256 hex.
     - **Inputs:** `raw` is the active tab's raw widget value: PDF bytes (`b""` when nothing is uploaded) or pasted text (`""` when empty).
@@ -228,6 +228,7 @@ classDiagram
     - **Demo mode:** it hashes only `"demo"`, so editing the input doesn't mark demo results stale.
     - **Callers:** Generate and every rerun call it with the same widget values.
   - `word_count(summary) -> int`: `len(text.split())` over headings and bullets.
+  - `within_word_range(count: int, length: Length) -> bool`: `True` when `count` is inside the word-range table's bounds widened by 10 % (FR-5). `app.py` shows the UX word-range note under the caption when it is `False`, using `generated_with.length`. The Summary is always shown; this is not an error and does not touch `last_error`.
 
 ## Consistency Conventions
 
@@ -236,7 +237,7 @@ classDiagram
 | Naming | Modules and functions `snake_case`; classes `PascalCase`; identifiers and comments in English. |
 | Length / language values | `Length` enum `short` · `medium` · `long`; `Language` enum `en` · `no`; `Source` enum `pdf` · `text`; `SOURCE_BY_TAB_LABEL` ("Upload PDF" → `pdf`, "Paste text" → `text`); all in `models.py`. |
 | Labels | `models.py` holds `LENGTH_LABELS` (Short/Medium/Long), `LANGUAGE_LABELS` (English/Norsk) and `LANGUAGE_PROMPT_NAMES` (English/Norwegian Bokmål). UI, caption and prompts read from these. Caption format: `<N> words · <length.value> · <LANGUAGE_LABELS[language]>`. |
-| Word ranges | One table in `models.py`: short `<150`, medium `150–400`, long `400–800` (FR-5). Prompts and tests read it from there. |
+| Word ranges | One table in `models.py`: short `<150`, medium `150–400`, long `400–800` (FR-5). Prompts and tests read it from there. Accepted with ±10 % tolerance (FR-5, FR-13): short 0–165, medium 135–440, long 360–880, inclusive. |
 | Quiz checking | `quiz.py` takes a `StudyPack` and `list[int \| None]` (radio values in quiz order) and returns per-question results and the score. |
 | Errors | Raise `errors.py` types only; no bare `except:`; print the original exception before translating it. |
 | Secrets | Only `config.py` touches `GEMINI_API_KEY`. |
@@ -340,6 +341,7 @@ flowchart LR
 | FR-10 Results UI, caption and stale note | `app.py`, `helpers.py` | AD-1, AD-7, AD-12 |
 | FR-11 Loading indicator | `app.py` | AD-7 (`is_running`) |
 | FR-12 Demo mode | `demo.py`, `config.py`, `app.py` | AD-9, AD-10 |
+| FR-13 Gemini error handling and word-range note | `llm.py`, `errors.py`, `app.py`, `helpers.py` | AD-2, AD-4, AD-5, AD-12 |
 | PRD §9 Prompt engineering | `prompts/`, `PROMPTS.md` | AD-8 |
 | PRD §10 Testing | `tests/`, `test_data/` | AD-11 |
 | PRD §11 Secrets and deployment | `config.py`, `requirements.txt` | AD-9, Deployment & operations |
@@ -348,7 +350,8 @@ flowchart LR
 
 - **Quiz count checked only after the call**: a reply with the wrong number of questions costs one wasted request (`BadModelResponse`). Accepted as rare.
 - **Spine weight**: some pins (labels, widget key names) could move to the stories or the README. Trim after the build if they turn out to be obvious from the code.
-- **Word-range miss note and pasted-text length cap** (PRD feedback 4.1/4.5): neither is in the PRD or UX. Oversized input is covered for now by `MaterialRejected`. Revisit if summaries miss their ranges in testing.
+- **Pasted-text length cap** (PRD feedback 4.5): not in the PRD or UX. Oversized input is covered for now by `MaterialRejected`. (The word-range note from the same feedback is now FR-13, AD-12.)
+- **Automatic quiz regeneration** (PRD feedback 4.2 suggests one retry for an invalid quiz): not adopted; AD-2 keeps one call per Generate, and an invalid quiz is a `BadModelResponse` the user retries with Generate.
 - **Caching results** (`st.cache_data`): not needed with one request per Generate; revisit if rate limits hit during demos.
 - **Flashcards and per-subject storage (SQLite)**: PRD stretch goals. They would add a module next to `quiz.py` and a storage module behind the shell, without changing the existing ADs.
 - **Multi-user accounts**: out of scope (PRD §5).
