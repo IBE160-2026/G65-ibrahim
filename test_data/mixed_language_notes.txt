@@ -1,0 +1,11 @@
+Notater fra forelesning om fotosyntese
+
+Fotosyntese er prosessen der planter, alger og noen bakterier bruker energi fra sollys til å lage sukker. Prosessen skjer i kloroplastene, som inneholder det grønne fargestoffet klorofyll. Planten tar opp karbondioksid fra luften og vann fra jorden, og den slipper ut oksygen som et biprodukt.
+
+The light-dependent reactions take place in the thylakoid membranes. Light energy splits water molecules, releases oxygen and produces the energy carriers ATP and NADPH. These carriers are then used in the next stage of the process.
+
+I Calvin-syklusen, som foregår i stroma, bindes karbondioksid til et organisk molekyl. Ved hjelp av ATP og NADPH bygges det opp sukker som planten kan bruke til vekst eller lagre som stivelse. Syklusen trenger ikke lys direkte, men er avhengig av produktene fra lysreaksjonene.
+
+Several factors limit the rate of photosynthesis: light intensity, carbon dioxide concentration and temperature. If one factor is in short supply, increasing the others has little effect. Greenhouses often add extra carbon dioxide to make crops grow faster.
+
+Fotosyntesen er grunnlaget for nesten alle næringskjeder på jorden. Den binder også karbon fra atmosfæren og påvirker dermed klimaet. Skoger og havets planteplankton står for en stor del av den globale fotosyntesen.

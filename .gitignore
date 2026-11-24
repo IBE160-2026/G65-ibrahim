@@ -43,7 +43,11 @@ playwright-report/
 .env.*
 !.env.example
 !.env.*.example
+.streamlit/secrets.toml
 *.log
+
+# Real course PDFs for manual runs only; never commit them
+test_data/private/
 
 # BMAD: keep shared framework, skills, plans and documentation
 _bmad/config.user.toml
