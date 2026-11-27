@@ -18,5 +18,5 @@
 - [x] 2026-11-22 [prd-feedback-update](995-2026-11-22-16-41-02-prd-feedback-update.md) — Run lint_spine.py on the updated spine once Python 3.13 is installed (løst 2026-11-22: 0 findings)
 - [x] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Run `sprint_plan.py validate` on the hand-built sprint-status.yaml once a working Python is available (løst 2026-11-22: valid, generate --dry-run in_sync)
 - [ ] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Align PRD §7 Cost ("throttling and/or caching") with the architecture's "no throttling, user waits"
-- [ ] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Open the app in a browser once to confirm the centered layout and caption wording (only checked headless and in AppTest)
+- [x] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Open the app in a browser once to confirm the centered layout and caption wording (only checked headless and in AppTest) (løst 2026-11-27: Edge headless screenshots at 1280 and 600 px match UX-DR1/2)
 - [ ] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Story 1.2: add the 3 deferred tests from _bmad-output/implementation-artifacts/deferred-work.md
