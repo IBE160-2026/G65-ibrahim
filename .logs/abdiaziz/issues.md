@@ -19,4 +19,6 @@
 - [x] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Run `sprint_plan.py validate` on the hand-built sprint-status.yaml once a working Python is available (løst 2026-11-22: valid, generate --dry-run in_sync)
 - [ ] 2026-11-22 [sprint-planning](994-2026-11-22-16-53-50-sprint-planning.md) — Align PRD §7 Cost ("throttling and/or caching") with the architecture's "no throttling, user waits"
 - [x] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Open the app in a browser once to confirm the centered layout and caption wording (only checked headless and in AppTest) (løst 2026-11-27: Edge headless screenshots at 1280 and 600 px match UX-DR1/2)
-- [ ] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Story 1.2: add the 3 deferred tests from _bmad-output/implementation-artifacts/deferred-work.md
+- [x] 2026-11-24 [story-1-1-project-setup](992-2026-11-24-11-56-41-story-1-1-project-setup.md) — Story 1.2: add the 3 deferred tests from _bmad-output/implementation-artifacts/deferred-work.md (løst 2026-11-28)
+- [ ] 2026-11-28 [story-1-2-material-input](991-2026-11-28-15-33-44-story-1-2-material-input.md) — Run the manual browser check for Story 1.2 (scanned PDF message, tab switch keeps the upload)
+- [ ] 2026-11-28 [story-1-2-material-input](991-2026-11-28-15-33-44-story-1-2-material-input.md) — Mark the 3 Story 1.1 entries in deferred-work.md as done by Story 1.2
