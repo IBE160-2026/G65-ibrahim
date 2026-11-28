@@ -30,7 +30,7 @@
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 
 generated: 11-22-2026 16:53
-last_updated: 11-24-2026 11:56
+last_updated: 11-28-2026 16:00
 project: G65-ibrahim
 project_key: NOKEY
 tracking_system: file-system
@@ -38,7 +38,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-set-up-the-project-and-open-the-app: review
-  1-2-provide-course-material-and-get-clear-input-errors: backlog
+  1-2-provide-course-material-and-get-clear-input-errors: review
   1-3-generate-a-structured-summary-in-the-chosen-length-and-langu: backlog
   1-4-clear-messages-when-gemini-fails: backlog
   epic-1-retrospective: optional
